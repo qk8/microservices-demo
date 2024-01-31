@@ -1,0 +1,29 @@
+server:
+  port: ${PORT:9007}
+  
+spring:
+  application:
+    name: gateway
+  security:
+    oauth2:
+      client:
+        provider:
+          my-keycloak-provider:
+            issuer-uri: ${OAUTH2_ISSUER_URI}
+        registration:
+          keycloak-spring-gateway-client:
+            provider: my-keycloak-provider
+            scope: openid
+            client-id: microservices-demo-client          
+            client-secret: SyJLWqCvJqhiqJt1qjaI2EkkXbT6AvNp
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/keycloak"
+  cloud:
+    gateway:
+      default-filters:
+        - TokenRelay
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+

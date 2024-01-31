@@ -1,0 +1,21 @@
+server:
+  port: ${PORT:9006}
+  
+spring:
+  application:
+    name: config-service
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/config
+    
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: ${EUREKA_URI}
+    register-with-eureka: true
+    fetchRegistry: true
+    

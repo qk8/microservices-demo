@@ -1,0 +1,188 @@
+services:
+  discovery-service:
+    build: ./discovery-service/
+    restart: always
+    environment:
+      PORT: 8761
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices
+
+  config-service:
+    build: ./config-service/
+    restart: always
+    environment:
+      PORT: 9006
+      EUREKA_URI: "http://discovery-service:8761/eureka"
+    ports:
+      - "9006:9006"
+    networks:
+      - microservices
+    depends_on:
+      - discovery-service
+
+  gateway:
+    build: ./gateway/
+    restart: always
+    environment:
+      PORT: 9007
+      EUREKA_URI: "http://discovery-service:8761/eureka"
+      OAUTH2_ISSUER_URI: "http://keycloak:9999/realms/microservices-demo"
+    ports:
+      - "9007:9007"
+    networks:
+      - microservices
+    depends_on:
+      - discovery-service
+      - config-service
+      - keycloak
+  
+  item-service:
+    build: ./item-service/
+    restart: always
+    environment:
+      PORT: 9008
+      EUREKA_URI: "http://discovery-service:8761/eureka"
+      OAUTH2_ISSUER_URI: "http://keycloak:9999/realms/microservices-demo"
+      POSTGRES_HOST: item-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: item-user
+      POSTGRES_PASSWORD: 123123
+      POSTGRES_DB: item-user
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 9094
+    ports:
+      - "9008:9008"
+    networks:
+      - microservices
+    depends_on:
+      - item-postgres
+      - discovery-service
+      - config-service
+      - keycloak
+        
+  item-postgres:
+    container_name: item-postgres
+    image: postgres
+    environment:
+      PGPORT: 5432
+      POSTGRES_USER: item-user
+      POSTGRES_PASSWORD: 123123
+      PGDATA: /data/postgres
+    volumes:
+      - item-postgres:/data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - microservices
+    restart: always
+
+  redis:
+    container_name: redis
+    image: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - microservices
+
+  keycloak:
+    image: bitnami/keycloak
+    environment:
+      KEYCLOAK_HTTP_PORT: 9999
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASSWORD: Pa55w0rd
+      KEYCLOAK_DATABASE_VENDOR: postgresql
+      KEYCLOAK_DATABASE_HOST: keycloak-postgres
+      KEYCLOAK_DATABASE_PORT: 5433
+      KEYCLOAK_DATABASE_USER: keycloak-user
+      KEYCLOAK_DATABASE_PASSWORD: 123123
+      KEYCLOAK_DATABASE_NAME: keycloak-user
+      KEYCLOAK_DATABASE_SCHEMA: public
+    ports:
+      - 9999:9999
+    networks:
+      - microservices
+    depends_on:
+      - keycloak-postgres
+    restart: always
+
+  keycloak-postgres:
+    container_name: keycloak-postgres
+    image: postgres
+    environment:
+      PGPORT: 5433
+      POSTGRES_USER: keycloak-user
+      POSTGRES_PASSWORD: 123123
+      PGDATA: /data/postgres
+    volumes:
+      - keycloak-postgres:/data/postgres
+    ports:
+      - "5433:5433"
+    networks:
+      - microservices
+    restart: always
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - microservices
+    restart: always
+    
+  kafka:
+    image: bitnami/kafka:3.5.1
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft settings
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      # Listeners
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,INTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,INTERNAL://:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    restart: always
+    networks:
+      - microservices
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.1
+    ports:
+      - "8089:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9094
+    restart: always
+    depends_on:
+      - kafka
+    networks:
+      - microservices
+    
+    
+networks:
+  microservices:
+    driver: bridge
+
+volumes:
+  item-postgres:
+  keycloak-postgres:
+  pgadmin:
+  
+  
+  
+  
